@@ -1,11 +1,12 @@
-# Eunseo-Cat without MPGR
+# Eunseo-Cat without MPGR, Direct CE Only
 
-This repository is the isolated `w/o MPGR` ablation of Eunseo-Cat for
-tabular-data imputation under MNAR missingness.
+This repository contains the `w/o MPGR + Direct CE-only` Eunseo-Cat variant
+for tabular-data imputation under MNAR missingness.
 
-Only MPGR is removed. TOSE, the native categorical head, all losses, data
-splits, metrics, seeds, validation-only checkpoint selection, and the training
-schedule are held fixed relative to Eunseo-Cat.
+MPGR is replaced by uniform remasking. The final native-category CatHead is
+trained only with direct category-index cross-entropy; the legacy codebook CE
+and bit BCE output losses are disabled. Data splits, metrics, seeds,
+validation-only checkpoint selection, and the training schedule remain fixed.
 
 ## What Changed
 
@@ -24,13 +25,25 @@ The remasking ratio remains `0.25`. Natural missing cells are never used as
 training targets; only observed logical features selected by the auxiliary
 mask provide self-supervised targets.
 
+The categorical objective is simplified to:
+
+```text
+categorical loss = 1.0 * native-category Direct CE
+                 + 0.0 * codebook CE
+                 + 0.0 * bit BCE
+```
+
+Categorical inputs remain codebook-bit encoded. Only the legacy categorical
+bit-decoder output losses are removed and their loss computation is skipped;
+the input representation and native CatHead are unchanged.
+
 ## What Is Unchanged
 
 - Target-conditional observed-set encoder (TOSE)
 - Target query and observed-memory cross-attention
 - Numeric decoder and normalized numeric training space
 - Per-column native-category CatHead
-- Direct categorical cross-entropy and codebook/bit auxiliary losses
+- Direct native-category cross-entropy
 - Hard MNAR train/valid/test files
 - `seed = 20260430 + split_idx`
 - Maximum 600 epochs and early-stopping patience 45
@@ -124,7 +137,7 @@ T2 results are written under:
 
 ```text
 results/hard/t2/<dataset>/rate30/MNAR_logistic_T2_v2_strict_hard/
-  split_<k>/eunseo_cat_wo_mpgr_hard_t2_e600_es/v*/
+  split_<k>/eunseo_cat_wo_mpgr_direct_ce_only_hard_t2_e600_es/v*/
 ```
 
 Generated data, checkpoints, predictions, plots, and result files are excluded

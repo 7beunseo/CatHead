@@ -38,7 +38,7 @@ if (-not (Test-Path -LiteralPath $DataRoot)) {
 $datasetArgument = $Datasets -join ","
 $launched = @()
 
-Write-Host "[launch] Eunseo-Cat w/o MPGR"
+Write-Host "[launch] Eunseo-Cat w/o MPGR, Direct-CE-only"
 Write-Host ("[launch] mode={0} processes=10 split_ownership=one-split-per-window" -f $Mode)
 Write-Host ("[launch] repo_root={0}" -f $RepoRoot)
 Write-Host ("[launch] data_root={0}" -f $DataRoot)
@@ -46,7 +46,7 @@ Write-Host "[launch] watchdog=false inactivity_timeout=false"
 Write-Host ("[launch] visible_windows=10 max_concurrent_gpu_jobs={0}" -f $MaxConcurrentGpuJobs)
 
 foreach ($split in 0..9) {
-    $title = "Eunseo-Cat w/o MPGR $Mode split $split"
+    $title = "Eunseo-Cat w/o MPGR DirectCE $Mode split $split"
     $command = (
         "& '{0}' -Mode '{1}' -Splits '{2}' -Datasets '{3}' -PythonExe '{4}' -DataRoot '{5}' -MaxConcurrentGpuJobs '{6}' -GpuSlotDirectory '{7}'" -f
         $Runner, $Mode, $split, $datasetArgument, $PythonExe, $DataRoot, $MaxConcurrentGpuJobs, $GpuSlotDirectory

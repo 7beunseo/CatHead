@@ -148,32 +148,39 @@ class EunseoForwardLoss(nn.Module):
         cat_col_mask: torch.Tensor,
     ) -> dict[str, torch.Tensor]:
         num_loss = masked_mse(pred_num, target_num, num_mask)
-        cat_codebook_loss = categorical_codebook_ce_loss(
-            cat_logits=pred_cat_logits,
-            target_cat_idx=target_cat_idx,
-            cat_col_mask=cat_col_mask,
-            cat_codebooks=[getattr(self, name) for name in self._cat_codebook_names],
-            cat_bin_num=self.cat_bin_num,
-        )
+        cat_codebook_loss = pred_cat_logits.new_tensor(0.0)
+        if self.cat_codebook_loss_weight > 0.0:
+            cat_codebook_loss = categorical_codebook_ce_loss(
+                cat_logits=pred_cat_logits,
+                target_cat_idx=target_cat_idx,
+                cat_col_mask=cat_col_mask,
+                cat_codebooks=[getattr(self, name) for name in self._cat_codebook_names],
+                cat_bin_num=self.cat_bin_num,
+            )
         cat_direct_loss = categorical_direct_ce_loss(
             cat_class_logits=pred_cat_class_logits,
             target_cat_idx=target_cat_idx,
             cat_col_mask=cat_col_mask,
         )
-        cat_bit_aux_loss = masked_bce_with_logits(pred_cat_logits, target_cat, cat_mask)
+        bit_loss_weight = (
+            self.cat_bit_beta if self.loss_balance_mode == "type_mean" else self.cat_bit_aux_loss_weight
+        )
+        cat_bit_aux_loss = pred_cat_logits.new_tensor(0.0)
+        if bit_loss_weight > 0.0:
+            cat_bit_aux_loss = masked_bce_with_logits(pred_cat_logits, target_cat, cat_mask)
 
         if self.loss_balance_mode == "type_mean":
             cat_loss = (
                 self.cat_direct_ce_loss_weight * cat_direct_loss
                 + self.cat_codebook_loss_weight * cat_codebook_loss
-                + self.cat_bit_beta * cat_bit_aux_loss
+                + bit_loss_weight * cat_bit_aux_loss
             )
             total_loss = self.lambda_num * num_loss + self.lambda_cat * cat_loss
         else:
             cat_loss = (
                 self.cat_direct_ce_loss_weight * cat_direct_loss
                 + self.cat_codebook_loss_weight * cat_codebook_loss
-                + self.cat_bit_aux_loss_weight * cat_bit_aux_loss
+                + bit_loss_weight * cat_bit_aux_loss
             )
             total_loss = num_loss + cat_loss
 

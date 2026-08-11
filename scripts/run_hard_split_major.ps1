@@ -85,7 +85,7 @@ if ($Mode -eq "T2") {
         $OutputRoot = Join-Path $RepoRoot "results\hard\t2"
     }
     if ([string]::IsNullOrWhiteSpace($RunTag)) {
-        $RunTag = "eunseo_cat_wo_mpgr_hard_t2_e600_es"
+        $RunTag = "eunseo_cat_wo_mpgr_direct_ce_only_hard_t2_e600_es"
     }
 } else {
     $MaskType = "MNAR_self_logistic_v2_strict_hard"
@@ -93,7 +93,7 @@ if ($Mode -eq "T2") {
         $OutputRoot = Join-Path $RepoRoot "results\hard\self"
     }
     if ([string]::IsNullOrWhiteSpace($RunTag)) {
-        $RunTag = "eunseo_cat_wo_mpgr_hard_self_e600_es"
+        $RunTag = "eunseo_cat_wo_mpgr_direct_ce_only_hard_self_e600_es"
     }
 }
 
@@ -219,7 +219,7 @@ function Exit-GpuSlot($Slot) {
     Write-Host ("[gpu-slot-released] slot={0}" -f $slotIndex)
 }
 
-Write-Host ("[run] Eunseo-Cat w/o MPGR hard {0} split-major resume-enabled" -f $Mode)
+Write-Host ("[run] Eunseo-Cat w/o MPGR, Direct-CE-only hard {0} split-major resume-enabled" -f $Mode)
 Write-Host ("[run] repo_root={0}" -f $RepoRoot)
 Write-Host ("[run] datasets={0}" -f ($Datasets -join ", "))
 Write-Host ("[run] splits={0}" -f ($Splits -join ", "))
@@ -227,6 +227,7 @@ Write-Host ("[run] mask={0}" -f $MaskType)
 Write-Host ("[run] data_root={0}" -f $DataRoot)
 Write-Host ("[run] output_root={0}" -f $OutputRoot)
 Write-Host "[run] mpgr=false remasking=uniform_without_replacement ratio=0.25"
+Write-Host "[run] categorical_loss=direct_ce:1.0 codebook_ce:0.0 bit_bce:0.0"
 Write-Host "[run] max_epochs=600 patience=45 selection=valid-only"
 if ($MaxConcurrentGpuJobs -gt 0) {
     Write-Host ("[run] gpu_concurrency_limit={0} slot_directory={1}" -f $MaxConcurrentGpuJobs, $GpuSlotDirectory)
@@ -262,7 +263,11 @@ foreach ($split in $Splits) {
             "--max-epochs", "600",
             "--early-stop-patience", "45",
             "--early-stop-min-delta", "0.0002",
-            "--selection-split", "valid"
+            "--selection-split", "valid",
+            "--cat-direct-ce-loss-weight", "1.0",
+            "--cat-codebook-loss-weight", "0.0",
+            "--cat-bit-aux-loss-weight", "0.0",
+            "--cat-bit-beta", "0.0"
         )
 
         if (-not $NoAmp) {

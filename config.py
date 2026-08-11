@@ -126,10 +126,10 @@ def get_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--loss-balance-mode", type=str, default="legacy", choices=["legacy", "type_mean"])
     parser.add_argument("--lambda-num", type=float, default=0.5)
     parser.add_argument("--lambda-cat", type=float, default=0.5)
-    parser.add_argument("--cat-bit-beta", type=float, default=0.1)
+    parser.add_argument("--cat-bit-beta", type=float, default=0.0)
     parser.add_argument("--cat-direct-ce-loss-weight", type=float, default=1.0)
-    parser.add_argument("--cat-codebook-loss-weight", type=float, default=0.3)
-    parser.add_argument("--cat-bit-aux-loss-weight", type=float, default=0.05)
+    parser.add_argument("--cat-codebook-loss-weight", type=float, default=0.0)
+    parser.add_argument("--cat-bit-aux-loss-weight", type=float, default=0.0)
     return parser
 
 
