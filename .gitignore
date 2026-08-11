@@ -1,0 +1,32 @@
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Local environments
+.venv/
+venv/
+.env
+
+# Generated datasets and experiment outputs
+data/
+results/
+outputs*/
+*_outputs/
+run_logs/
+_dynamic_queue_state/
+_summaries/
+
+# Heavy model artifacts and generated arrays
+*.pt
+*.pth
+*.ckpt
+*.npy
+*.npz
+*.png
+*.log
+
+# Notebook and editor noise
+.ipynb_checkpoints/
+.vscode/
+.idea/
+
