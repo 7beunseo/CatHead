@@ -86,17 +86,22 @@ powershell -ExecutionPolicy Bypass -File ".\scripts\run_hard_split_major.ps1" `
 ## Run Ten Visible Processes
 
 This launches ten visible PowerShell windows. Each window owns exactly one T2
-split and processes all 14 datasets sequentially.
+split and processes all 14 datasets sequentially. To avoid exhausting an 8 GB
+GPU and host RAM, at most eight training jobs enter the GPU section at once;
+the remaining visible windows wait for a file-lock slot without changing the
+model, batch size, loss, or checkpoint protocol.
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File ".\scripts\launch_hard_10_processes.ps1" `
   -Mode T2 `
+  -MaxConcurrentGpuJobs 8 `
   -DataRoot "C:\Users\DS\eunseo\Eunseo-Github\data\hard_mnar" `
   -PythonExe "C:\Users\DS\anaconda3\envs\daycon-env\python.exe"
 ```
 
 No watchdog or inactivity timeout is used. A process is not killed and
-restarted merely because an epoch takes a long time.
+restarted merely because an epoch takes a long time. GPU slots use OS file
+locks, so an unexpectedly closed process releases its slot automatically.
 
 ## Results
 

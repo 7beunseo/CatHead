@@ -24,6 +24,14 @@ param(
 
     [switch]$NoAmp,
 
+    [ValidateRange(0, 64)]
+    [int]$MaxConcurrentGpuJobs = 0,
+
+    [string]$GpuSlotDirectory = "",
+
+    [ValidateRange(1, 300)]
+    [int]$GpuSlotPollSeconds = 5,
+
     [switch]$DryRun
 )
 
@@ -40,6 +48,13 @@ if (-not (Test-Path -LiteralPath $DataRoot)) {
 }
 if (-not (Test-Path -LiteralPath $PythonExe)) {
     throw "Python executable not found: $PythonExe"
+}
+
+if ($MaxConcurrentGpuJobs -gt 0) {
+    if ([string]::IsNullOrWhiteSpace($GpuSlotDirectory)) {
+        $GpuSlotDirectory = Join-Path $RepoRoot "results\.gpu_slots"
+    }
+    [System.IO.Directory]::CreateDirectory($GpuSlotDirectory) | Out-Null
 }
 
 $Datasets = @(
@@ -154,6 +169,56 @@ function Find-ResumeCheckpoint([string]$Dataset, [int]$Split) {
     return $null
 }
 
+function Enter-GpuSlot([string]$Dataset, [int]$Split) {
+    if ($MaxConcurrentGpuJobs -le 0) {
+        return $null
+    }
+
+    while ($true) {
+        foreach ($slotIndex in 0..($MaxConcurrentGpuJobs - 1)) {
+            $slotPath = Join-Path $GpuSlotDirectory ("gpu_slot_{0}.lock" -f $slotIndex)
+            try {
+                $stream = [System.IO.File]::Open(
+                    $slotPath,
+                    [System.IO.FileMode]::OpenOrCreate,
+                    [System.IO.FileAccess]::ReadWrite,
+                    [System.IO.FileShare]::None
+                )
+                $payload = "pid=$PID mode=$Mode split=$Split dataset=$Dataset acquired=$([DateTime]::Now.ToString('o'))"
+                $bytes = [System.Text.Encoding]::UTF8.GetBytes($payload)
+                $stream.SetLength(0)
+                $stream.Write($bytes, 0, $bytes.Length)
+                $stream.Flush()
+
+                Write-Host ("[gpu-slot-acquired] slot={0} split={1} dataset={2}" -f $slotIndex, $Split, $Dataset)
+                return [PSCustomObject]@{
+                    Index = $slotIndex
+                    Path = $slotPath
+                    Stream = $stream
+                }
+            } catch [System.IO.IOException] {
+                continue
+            }
+        }
+
+        Write-Host (
+            "[gpu-slot-wait] split={0} dataset={1} active_limit={2}; no process is killed or restarted" -f
+            $Split, $Dataset, $MaxConcurrentGpuJobs
+        )
+        Start-Sleep -Seconds $GpuSlotPollSeconds
+    }
+}
+
+function Exit-GpuSlot($Slot) {
+    if ($null -eq $Slot) {
+        return
+    }
+
+    $slotIndex = $Slot.Index
+    $Slot.Stream.Dispose()
+    Write-Host ("[gpu-slot-released] slot={0}" -f $slotIndex)
+}
+
 Write-Host ("[run] Eunseo-Cat w/o MPGR hard {0} split-major resume-enabled" -f $Mode)
 Write-Host ("[run] repo_root={0}" -f $RepoRoot)
 Write-Host ("[run] datasets={0}" -f ($Datasets -join ", "))
@@ -163,6 +228,11 @@ Write-Host ("[run] data_root={0}" -f $DataRoot)
 Write-Host ("[run] output_root={0}" -f $OutputRoot)
 Write-Host "[run] mpgr=false remasking=uniform_without_replacement ratio=0.25"
 Write-Host "[run] max_epochs=600 patience=45 selection=valid-only"
+if ($MaxConcurrentGpuJobs -gt 0) {
+    Write-Host ("[run] gpu_concurrency_limit={0} slot_directory={1}" -f $MaxConcurrentGpuJobs, $GpuSlotDirectory)
+} else {
+    Write-Host "[run] gpu_concurrency_limit=disabled"
+}
 
 foreach ($split in $Splits) {
     Write-Host ""
@@ -216,9 +286,18 @@ foreach ($split in $Splits) {
             continue
         }
 
-        & $PythonExe @pyArgs
-        if ($LASTEXITCODE -ne 0) {
-            throw "Eunseo-Cat w/o MPGR failed: mode=$Mode split=$split dataset=$dataset exit_code=$LASTEXITCODE"
+        $gpuSlot = $null
+        $taskExitCode = -1
+        try {
+            $gpuSlot = Enter-GpuSlot $dataset $split
+            & $PythonExe @pyArgs
+            $taskExitCode = $LASTEXITCODE
+        } finally {
+            Exit-GpuSlot $gpuSlot
+        }
+
+        if ($taskExitCode -ne 0) {
+            throw "Eunseo-Cat w/o MPGR failed: mode=$Mode split=$split dataset=$dataset exit_code=$taskExitCode"
         }
     }
 }
