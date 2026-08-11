@@ -103,6 +103,21 @@ No watchdog or inactivity timeout is used. A process is not killed and
 restarted merely because an epoch takes a long time. GPU slots use OS file
 locks, so an unexpectedly closed process releases its slot automatically.
 
+If a task failed before writing any readable checkpoint, intentionally start
+a new version with:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File ".\scripts\run_hard_split_major.ps1" `
+  -Mode T2 `
+  -Splits 9 `
+  -AllowFreshIncomplete `
+  -DataRoot "C:\Users\DS\eunseo\Eunseo-Github\data\hard_mnar" `
+  -PythonExe "C:\Users\DS\anaconda3\envs\daycon-env\python.exe"
+```
+
+When a readable checkpoint exists, the same runner resumes it instead of
+starting a new version.
+
 ## Results
 
 T2 results are written under:

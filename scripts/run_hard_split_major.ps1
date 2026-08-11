@@ -247,6 +247,7 @@ foreach ($split in $Splits) {
         }
 
         $checkpoint = Find-ResumeCheckpoint $dataset $split
+        $hasAnyOutput = Test-TaskHasAnyOutput $dataset $split
         $pyArgs = @(
             $Runner,
             "--datasets", $dataset,
@@ -274,11 +275,15 @@ foreach ($split in $Splits) {
         } elseif ($ResumeOnly) {
             Write-Host ("[resume-only-skip-no-checkpoint] split={0} dataset={1}" -f $split, $dataset)
             continue
-        } elseif (Test-TaskHasAnyOutput $dataset $split -and -not $AllowFreshIncomplete) {
+        } elseif ($hasAnyOutput -and -not $AllowFreshIncomplete) {
             Write-Host ("[blocked-no-readable-checkpoint] split={0} dataset={1}; pass -AllowFreshIncomplete only for an intentional restart" -f $split, $dataset)
             continue
         } else {
             Write-Host ("[fresh] split={0} dataset={1}" -f $split, $dataset)
+            if ($hasAnyOutput) {
+                Write-Host ("[fresh-new-version-after-incomplete] split={0} dataset={1}" -f $split, $dataset)
+                $pyArgs += "--force-new-version"
+            }
         }
 
         if ($DryRun) {
